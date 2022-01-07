@@ -1,93 +1,134 @@
-# ot-aws-MariaDB
+AWS RDS MariaDB Terraform module
+=====================================
+
+[![Opstree Solutions][opstree_avatar]][opstree_homepage]
+
+[Opstree Solutions][opstree_homepage] 
+
+  [opstree_homepage]: https://opstree.github.io/
+  [opstree_avatar]: https://img.cloudposse.com/150x150/https://github.com/opstree.png
+
+Terraform module which creates Master Slave Replication MariaDB on AWS.
+
+These types of resources are supported:
+
+* [aws_db_subnet_group](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/db_subnet_group)
+* [aws_db_parameter_group](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/db_parameter_group)
+* [aws_db_instance](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/db_instance)
 
 
+Terraform versions
+------------------
 
-## Getting started
+Terraform 1.0.9.
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+Usage
+------
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+```hcl
 
-## Add your files
+provider "aws" {
+  region  = "ap-south-1"
+}
+module "mariadb" {
+  source                          = "./rds-classic"
+  name                            = "mydatabase"
+  engine                          = "mariadb"
+  engine_version                  = "10.4.13"
+  instance_class                  = "db.t2.small"
+  primary_identifier              = "mariadb"
+  Replica_identifier              = "mariadb-replica"
+  user_name                       = "root"
+  deletion_protection             = false
+  private_subnet_ids              = ["subnet-7d8c6216", "subnet-0dc89441"]
+  rds_security_group              = ["sg-00224a54e254e5207"]
+  replica_private_subnet_ids      = ["subnet-0dc89441", "subnet-04efa5b17ca8dd288"]
+  replica_rds_security_group      = ["sg-00224a54e254e5207"]
+  primary_region                  = "ap-south-1"
+  secondry_region                 = "ap-south-1"
+  multi_az                        = true
+  allocated_storage               = 100
+  iops                            = 3000
+  storage_type                    = "io1"
+  replica_backup_retention_period = 2
+  backup_retention_period         = 30
+  delete_automated_backups        = true 
+  primary_skip_final_snapshot     = false
+ 
+  ** # Add below two line to restore RDS from Snapshot ** 
+ 
+  restore_rds_from_snapshot       = true    
 
-- [ ] [Create](https://gitlab.com/-/experiment/new_project_readme_content:a7d7794d484e64a81418f416c0028196?https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://gitlab.com/-/experiment/new_project_readme_content:a7d7794d484e64a81418f416c0028196?https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://gitlab.com/-/experiment/new_project_readme_content:a7d7794d484e64a81418f416c0028196?https://docs.gitlab.com/ee/gitlab-basics/add-file.html#add-a-file-using-the-command-line) or push an existing Git repository with the following command:
+  snapshot_identifier = "arn:aws:rds:ap-south-1:858266601255:snapshot:mariadb-final-snapshot-26a6ff31"
+}
 
 ```
-cd existing_repo
-git remote add origin https://gitlab.com/ot-aws/terrafrom_v0.12.21/ot-aws-mariadb.git
-git branch -M main
-git push -uf origin main
-```
 
-## Integrate with your tools
 
-- [ ] [Set up project integrations](https://gitlab.com/-/experiment/new_project_readme_content:a7d7794d484e64a81418f416c0028196?https://gitlab.com/ot-aws/terrafrom_v0.12.21/ot-aws-mariadb/-/settings/integrations)
+Inputs
+------
+| Name | Description | Type | Default | Required |
+|------|-------------|------|---------|:--------:|
+| name  | The name of the database to create when the DB instance is created | `string` | `"mydatabase"` | No |
+| engine  | (Required unless a snapshot_identifier or replicate_source_db is provided) The database engine to use | `string` | `"mariadb"` | No |
+| engine_version | The engine version to use. If auto_minor_version_upgrade is enabled, you can provide a prefix of the version such as 5.7 (for 5.7.10) | `string` | `"10.4.13"` | No |
+| instance_class | The RDS instance class. | `string` | `"db.t2.small"` | No |
+| primary_identifier | The name of the primary RDS instance  | `string` | `"mariadb"` | No |
+| Replica_identifier | The name of the Replica  RDS instance | `string` | `"mariadb-replica"` | No |
+| deletion_protection |If the DB instance should have deletion protection enabled. The database can`t be deleted when this value is set to true | `boolean` | `"false"` | No |
+| private_subnet_ids |Private subnet ids in which db created| `List(string)` | `Null` | yes |
+| rds_security_group  |List of VPC security groups to associate with  Primary  | `List(string)` | `Null` | No |
+| replica_private_subnet_ids |Private subnet ids in which replica db created| `List(string)` | `Null` | Yes |
+| replica_rds_security_group |List of VPC security groups to associate with  Replica |`List(string)` | `Null` | No |
+| primary_region |primary region where db is create | `string` | `Null` | No |
+|secondry_region | secondryregion where db replica is create | `string` | `Null` | No |
+| Primary_subnet_name | Name of Primary DB subnet group. DB instance will be created in the VPC associated with the DB subnet group | `string` | `"mariadb-subnet"` | No | 
+| Primary_parameters_name | Name of the DB parameter group to associate. | `string` | `"mariadb-params"` | No |
+| parameters_family | The family of the DB parameter group. | `string` | mariadb10.4 | No |
+| Replica_parameters_name | The name of the DB parameter group | `string` | `"mariadb-params-replica"` | No |
+| Replica_subnet_name | Name of Replica DB subnet group. DB instance will be created in the VPC associated with the DB subnet group |  `string` | `"mariadb-subnet-replica"` | No |
+| user_name | Username for the master DB user | `string` | `"root"` | No |
+| replica_skip_final_snapshot | Determines whether a Replica final DB snapshot is created before the DB cluster is deleted. If true is specified, no DB snapshot is created. | `boolean` | `"true"` | No |
+| restore_rds_from_snapshot |If value is true, it is required to provide snapshot arn to TF_VAR_snapshot_identifier otherwise, leave it blank| `boolean` | `"false"` | No|
+| snapshot_identifier |Required, when TF_VAR_restore_rds_from_snapshot is set to true.Specifies whether or not to create this database from a snapshot.| `string` | `Null` | No |
+| apply_immediately |Specifies whether any database modifications are applied immediately, or during the next maintenance window.| `boolean` | `false` | No |
+| auto_minor_version_upgrade | "The minor engine upgrades will be applied automatically to the DB instance during the maintenance window." | `boolean` | `true` | No |
+| delete_automated_backups  | Specifies whether to remove automated backups immediately after the DB instance is deleted | `boolean` | `true` | No |
+| enabled_cloudwatch_logs_exports  | Set of log types to enable for exporting to CloudWatch logs | `list(string)` | `["audit", "general", "slowquery", "error"]` | No |
+| primary_skip_final_snapshot  | Determines whether a final DB snapshot is created before the DB cluster is deleted. If true is specified, no DB snapshot is created. | `boolean` | `false` | No |
+| backup_retention_period | How long to keep backups for (in days) | `number` | `30` | No |
+| replica_backup_retention_period  | How long to keep backups for (in days). Must be greater than 0 if the database is used as a source for a Read Replica | `number` | `2` | No |
+|enhanced_monitoring_role_enabled  | A boolean flag to enable/disable the creation of the enhanced monitoring IAM role. If set to `false`, the module will not create a new role and will use `rds_monitoring_role_arn` for enhanced monitoring | `boolean` |    `false` | No |
+|monitoring_interval  | The interval (seconds) between points when Enhanced Monitoring metrics are collected | `number` | `10` | No |
+|performance_insights_enabled  | Specifies whether Performance Insights is enabled or not | `boolean` | `false` | No |
+|performance_insights_kms_key_id  | The ARN for the KMS key to encrypt Performance Insights data | `string` | `Null` | No |
+| multi_az  | Specifies if the RDS instance is multi-AZ | `boolean` | `true` | No |
+| storage_type | One of standard (magnetic), gp2 (general purpose SSD), or io1 (provisioned IOPS SSD) | `string` | `"i01"` | No
+| iops | The amount of provisioned IOPS. Setting this implies a storage_type of io1 | `number` | `3000` | No |
+| allocated_storage | The allocated storage in gibibytes | `number` | `100` | No |
 
-## Collaborate with your team
 
-- [ ] [Invite team members and collaborators](https://gitlab.com/-/experiment/new_project_readme_content:a7d7794d484e64a81418f416c0028196?https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://gitlab.com/-/experiment/new_project_readme_content:a7d7794d484e64a81418f416c0028196?https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://gitlab.com/-/experiment/new_project_readme_content:a7d7794d484e64a81418f416c0028196?https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://gitlab.com/-/experiment/new_project_readme_content:a7d7794d484e64a81418f416c0028196?https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Automatically merge when pipeline succeeds](https://gitlab.com/-/experiment/new_project_readme_content:a7d7794d484e64a81418f416c0028196?https://docs.gitlab.com/ee/user/project/merge_requests/merge_when_pipeline_succeeds.html)
 
-## Test and Deploy
+Output
+------
+| Name | Description |
+|------|-------------|
+| mariadb_username | The master username for the database |
+| mariadb_password | The master username  Password for the database  |
+| mariadb_arn | The ARN of the RDS instance |
+| mariadb_id | The RDS instance ID. |
 
-Use the built-in continuous integration in GitLab.
 
-- [ ] [Get started with GitLab CI/CD](https://gitlab.com/-/experiment/new_project_readme_content:a7d7794d484e64a81418f416c0028196?https://docs.gitlab.com/ee/ci/quick_start/index.html)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing(SAST)](https://gitlab.com/-/experiment/new_project_readme_content:a7d7794d484e64a81418f416c0028196?https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://gitlab.com/-/experiment/new_project_readme_content:a7d7794d484e64a81418f416c0028196?https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://gitlab.com/-/experiment/new_project_readme_content:a7d7794d484e64a81418f416c0028196?https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://gitlab.com/-/experiment/new_project_readme_content:a7d7794d484e64a81418f416c0028196?https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
 
-***
+### Contributors
 
-# Editing this README
+[![Shweta Tyagi][shweta_avatar]][shweta_homepage]<br/>[Shweta Tyagi][shweta_homepage] 
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!).  Thank you to [makeareadme.com](https://www.makeareadme.com) for this template.
+  [shweta_homepage]: https://github.com/shwetatyagi-ot
+  [shweta_avatar]: https://img.cloudposse.com/75x75/https://github.com/shwetatyagi-ot.png
 
-## Suggestions for a good README
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+  
+[![aashutosh][aashutosh_avatar]][aashutosh_homepage]<br/>[Aashutosh][aashutosh_homepage] 
 
-## Name
-Choose a self-explaining name for your project.
-
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
-
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
-
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
-
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
-
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
-
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
-
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
-
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
-
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
-
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
-
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
-
-## License
-For open source projects, say how it is licensed.
-
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
-
+  [aashutosh_homepage]: https://https://github.com/aashutoshvats
+  [aashutosh_avatar]: https://img.cloudposse.com/70x70/http://github.com/aashutoshvats.png
